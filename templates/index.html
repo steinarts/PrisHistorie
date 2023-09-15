@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Car Price Lookup</title>
+</head>
+<body>
+    <h1>Car Price Lookup</h1>
+    <form method="POST">
+        <label for="car_id">Car ID:</label>
+        <input type="text" name="car_id" id="car_id" required>
+        <button type="submit">Search</button>
+    </form>
+
+    {% if price_data %}
+    <h2>Price Data for Car ID: {{ price_data.0.0 }}</h2>
+    <table border="1">
+        <tr>
+            <th>Date</th>
+            <th>Price</th>
+        </tr>
+        {% for row in price_data %}
+        <tr>
+            <td>{{ row.0 }}</td>
+            <td>{{ row.1 }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</body>
+</html>
