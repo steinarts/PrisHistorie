@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FastAPI Test</title>
+</head>
+<body>
+    <h1>Kall FastAPI fra HTML</h1>
+
+    <!-- Skjema for input -->
+    <input type="number" id="carIdInput" placeholder="Enter Car ID">
+    <button onclick="callApi()">Hent Prisinformasjon</button>
+
+    <!-- Område for å vise respons -->
+    <div id="responseArea"></div>
+
+    <script>
+        // JavaScript-funksjon for å kalle API-et
+        function callApi() {
+            var carId = document.getElementById("carIdInput").value;
+            fetch('http://127.0.0.1:8000/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ car_id: carId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                document.getElementById("responseArea").innerHTML = JSON.stringify(data, null, 2);
+
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+</body>
+</html>

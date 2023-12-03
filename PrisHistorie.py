@@ -45,10 +45,14 @@ def insert_car_and_price(carData):
         else:
             if (car['price'] ==9):
                 #delete from cars og legg i 
-                c.execute("INSERT INTO inactivecars SELECT * FROM cars WHERE car_id = ?", (car['carId'],))
-                c.execute("DELETE FROM cars WHERE car_id = ?", (car['carId'],))
+                c.execute("SELECT car_id FROM inactivecars WHERE car_id = ? LIMIT 1", (car['carId'],))
+                carExists = c.fetchone()
+                #check if we have a case of solg med pris
+                if carExists is None:
+                    c.execute("INSERT INTO inactivecars SELECT * FROM cars WHERE car_id = ?", (car['carId'],))
+                    c.execute("DELETE FROM cars WHERE car_id = ?", (car['carId'],))
 
-            c.execute("SELECT price FROM prices WHERE car_id = ?", (car['carId'],))
+            c.execute("SELECT price FROM prices WHERE car_id = ? ORDER BY timestamp DESC LIMIT 1", (car['carId'],))
             priceFound = c.fetchone()
 
             if priceFound:
@@ -68,7 +72,6 @@ def insert_car_and_price(carData):
 
                 #price = None  # eller hva du vil sette som standardverdi
                 #print(str((car['carId'],)) + ' Not found in prices')
-
 
     # Commit the changes
     conn.commit()
@@ -162,7 +165,7 @@ def main():
                 try:
                     response = requests.get(url)
                 #    break
-                except ConnectTimeout:
+                except (ConnectTimeout, ConnectionError) as e:
                     if attempt < max_attempts - 1:  # hvis det ikke er siste forsøk
                         print(f"Koblingstidsavbrudd oppstod. Venter 60 sekunder før forsøk {attempt + 2}.")
                         time.sleep(60)
@@ -183,21 +186,29 @@ def main():
     return carData
 
 def GetCarModels(url):
-    options = webdriver.EdgeOptions()
-    options.use_chromium = True  # Only for Edge version 79+
-    options.headless = True
-    browser = webdriver.Edge(options=options)
-    
-    browser.get(url)
-
+    browser = getBrowser(url)
 
     # Finn bilmerker og klikk på dem for å laste inn modellene
-    car_brands = browser.find_elements(By.CSS_SELECTOR, "input[id^='make-'] + label")
+    car_brands = getCarBrands(browser)
     for brand in car_brands:
         brand.click()
         #time.sleep(2)  # Vent litt for å sikre at innholdet er lastet
 
     return browser,car_brands
+
+def getCarBrands(browser):
+    car_brands = browser.find_elements(By.CSS_SELECTOR, "input[id^='make-'] + label")
+    return car_brands
+
+def getBrowser(url):
+    options = webdriver.EdgeOptions()
+    options.use_chromium = True  # Only for Edge version 79+
+    options.headless = True
+    #options.add_argument("headless")
+    browser = webdriver.Edge(options=options)
+    
+    browser.get(url)
+    return browser
 
 if __name__ == "__main__":
     carData = main()
