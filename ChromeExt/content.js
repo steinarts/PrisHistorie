@@ -30,8 +30,6 @@ function fetchPriceHistory(carId) {
     })
     .then(response => response.json())
     .then(data => {
-        console.log("data.price_data ");
-        console.log(data.price_data);
         insertPriceInfo(data.price_data);  // Kall `insertPriceInfo` med prisdataen
     })
     .catch(error => console.error('Error:', error));
