@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "Prishistorie Utvidelse",
+  "version": "1.0",
+  "description": "Viser prishistorikk på finn.no",
+  "permissions": [
+    "activeTab",
+    "http://localhost:8000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["*://*.finn.no/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
