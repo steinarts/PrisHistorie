@@ -55,24 +55,26 @@ def insert_car_and_price(carData):
             c.execute("SELECT price FROM prices WHERE car_id = ? ORDER BY timestamp DESC LIMIT 1", (car['carId'],))
             priceFound = c.fetchone()
 
-            if priceFound:
-                price = priceFound[0]
-                if (int(car['price']) != int(price)):
-                # Insert the new price for the old car
+            if (car['price'] != None):
+                if priceFound:
+                    price = priceFound[0]
+                    if (int(car['price']) != int(price)):
+                    # Insert the new price for the old car
+                        c.execute("""
+                        INSERT INTO prices (car_id, price)
+                        VALUES (?, ?)
+                        """, (car['carId'], car['price']))
+                else:
+                    # Insert the price for the new car
                     c.execute("""
                     INSERT INTO prices (car_id, price)
                     VALUES (?, ?)
                     """, (car['carId'], car['price']))
+
+                    #price = None  # eller hva du vil sette som standardverdi
+                    #print(str((car['carId'],)) + ' Not found in prices')
             else:
-                # Insert the price for the new car
-                c.execute("""
-                INSERT INTO prices (car_id, price)
-                VALUES (?, ?)
-                """, (car['carId'], car['price']))
-
-                #price = None  # eller hva du vil sette som standardverdi
-                #print(str((car['carId'],)) + ' Not found in prices')
-
+                print(str((car['carId'],)) + ' price is None')
     # Commit the changes
     conn.commit()
 

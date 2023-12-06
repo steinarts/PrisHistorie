@@ -1,0 +1,30 @@
+# Python cache:
+__pycache__/
+*.py[cod]
+
+# Databasefiler:
+*.db
+
+# IDE-spesifikke filer (f.eks. for VS Code, PyCharm, etc.):
+.vscode/
+.idea/
+
+# Loggfiler:
+*.log
+
+# Kompilerte filer:
+*.pyc
+
+# Testfiler (unntatt hvis de er nødvendige for prosjektet):
+test*.py
+
+# Unntatt spesifikke kataloger (legge til eller fjerne etter behov):
+DataAnalysis/
+Tests/
+
+# Operativsystem-spesifikke filer:
+.DS_Store # For MacOS
+
+# Andre filer og kataloger som ikke bør spores (legg til etter behov):
+.env
+secrets.yaml
