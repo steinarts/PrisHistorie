@@ -1,12 +1,12 @@
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
-import json
-import base64
 import time
 from requests.exceptions import ConnectTimeout
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 max_attempts = 5
 
@@ -192,6 +192,7 @@ def GetCarModels(url):
 
     # Finn bilmerker og klikk på dem for å laste inn modellene
     car_brands = getCarBrands(browser)
+    time.sleep(1)
     for brand in car_brands:
         brand.click()
         #time.sleep(2)  # Vent litt for å sikre at innholdet er lastet
@@ -208,8 +209,18 @@ def getBrowser(url):
     options.headless = True
     #options.add_argument("headless")
     browser = webdriver.Edge(options=options)
-    
+    #fixer ElementClickInterceptedException problemet som oppstår ved full liste
+    browser.set_window_size(1920, 1080)
+
     browser.get(url)
+    # Vent til "Vis alle"-knappen er lastet og klikkbar
+    vis_alle_knapp = WebDriverWait(browser, 10).until(
+        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-expanded='false']"))
+    )
+
+    # Klikk på "Vis alle"-knappen
+    vis_alle_knapp.click()
+
     return browser
 
 if __name__ == "__main__":
