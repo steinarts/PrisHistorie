@@ -23,7 +23,7 @@ function formatPriceInfo(priceData) {
 
 // Funksjon for å hente prishistorikk
 function fetchPriceHistory(carId) {
-    fetch('http://127.0.0.1:8000/', {
+    fetch('http://127.0.0.1:8001/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ car_id: carId })

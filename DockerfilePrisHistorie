@@ -1,0 +1,52 @@
+# PrisHistorie.py Dockerfile med cron
+
+# Bruk Python 3.10 som basesystem
+FROM python:3.10
+
+# Installer cron
+RUN apt-get update && apt-get -y install cron
+
+# Sett arbeidskatalogen i Docker
+WORKDIR /app
+
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+RUN install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/
+RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge-dev.list'
+RUN rm microsoft.gpg
+RUN apt-get update
+RUN apt-get install -y microsoft-edge-stable
+
+# Last ned og installer msedgedriver
+#RUN wget https://msedgedriver.azureedge.net/118.0.2088.46/edgedriver_linux64.zip
+#RUN wget https://msedgedriver.azureedge.net/120.0.2210.91/edgedriver_linux64.zip
+RUN wget https://msedgedriver.azureedge.net/126.0.2592.87/edgedriver_linux64.zip
+RUN unzip edgedriver_linux64.zip -d /usr/local/bin
+
+# Anta at msedgedriver er lastet ned og plassert i /usr/local/bin
+ENV PATH="/usr/local/bin:${PATH}"
+
+# Kopier requirements.txt og installer avhengighetene
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopier PrisHistorie.py og cron-jobbfilen til arbeidskatalogen i Docker
+COPY PrisHistorie.py /app/
+COPY cronjob /etc/cron.d/cronjob
+COPY data/PrisHistorie.db /app/data/PrisHistorie.db
+
+# Gi riktige rettigheter og opprett cron-loggfil
+RUN chmod 0644 /etc/cron.d/cronjob && touch /var/log/cron.log
+RUN crontab /etc/cron.d/cronjob
+
+# justerer tidssonen
+RUN ln -sf /usr/share/zoneinfo/Europe/Oslo /etc/localtime
+RUN echo "Europe/Oslo" > /etc/timezone
+
+# Kopier et skript som starter cron-tjenesten og deretter PrisHistorie.py
+COPY entrypoint.sh /app/
+
+# Gi kjøre-rettigheter til entrypoint-skriptet
+RUN chmod +x /app/entrypoint.sh
+
+# Kjør entrypoint-skriptet ved containerstart
+CMD ["/app/entrypoint.sh"]
