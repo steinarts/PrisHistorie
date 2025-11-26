@@ -45,13 +45,77 @@ async def index(request: Request, price_request: PriceRequest):
     price_data = get_price_data(car_id)
     return {"price_data": price_data}
 
+
+
 def get_price_data(car_id):
     # Koble til SQLite-databasen
     with db_connection() as conn:
         cursor = conn.cursor()
 
         # Hent prisdata for den angitte bil-IDen
-        cursor.execute("SELECT timestamp, price FROM prices WHERE car_id=?", (car_id,))
+        cursor.execute("""
+            WITH vin_list AS (
+                -- Hent vin-nummeret for car_id = 389224182 fra begge tabeller
+                SELECT vin 
+                FROM cars 
+                WHERE car_id = ?
+                UNION 
+                SELECT vin 
+                FROM inactivecars 
+                WHERE car_id = ?
+            ),
+            car_idList AS (
+                -- Hent alle car_id-er som har dette vin-nummeret fra begge tabeller
+                SELECT car_id 
+                FROM cars 
+                WHERE vin IN (SELECT vin FROM vin_list)
+                UNION 
+                SELECT car_id 
+                FROM inactivecars 
+                WHERE vin IN (SELECT vin FROM vin_list)
+                UNION 
+                -- Inkluder den opprinnelige car_id = ? eksplisitt
+                SELECT ? AS car_id
+            )
+
+            SELECT 
+                c.car_id AS current_car_id,
+                c.vin,
+                p.price,
+                c.km,
+                p.timestamp AS price_timestamp,
+                NULL AS listed_timestamp, -- Alltid NULL for aktive biler
+                NULL AS sold_timestamp,   -- Alltid NULL for aktive biler
+                NULL AS days_listed       -- Alltid NULL for aktive biler
+            FROM 
+                cars c
+            JOIN 
+                prices p ON c.car_id = p.car_id
+            WHERE 
+                c.car_id IN (SELECT car_id FROM car_idList)
+                       
+            UNION
+                       
+            SELECT 
+                ic.car_id AS inactive_car_id,
+                ic.vin,
+                p.price,
+                ic.km,
+                p.timestamp AS price_timestamp,
+                ic.timestamp AS listed_timestamp,
+                ic.inactivated_timestamp AS sold_timestamp,
+                CAST(JULIANDAY(ic.inactivated_timestamp) - JULIANDAY(ic.timestamp) AS INTEGER) AS days_listed
+            FROM 
+                inactivecars ic
+            JOIN 
+                prices p ON ic.car_id = p.car_id
+            WHERE 
+                ic.car_id IN (SELECT car_id FROM car_idList)
+
+            ORDER BY 
+                price_timestamp;
+        """, (car_id, car_id, car_id))
+        """cursor.execute("SELECT timestamp, price FROM prices WHERE car_id=?", (car_id,))"""
         price_data = cursor.fetchall()
 
     return price_data
@@ -82,8 +146,9 @@ async def index(request: Request, format: str = "json"):
             "date": entry[0],
             "time": {
                 "0900": entry[1],
-                "1800": entry[2],
-                "2200": entry[3]
+                "1400": entry[2],
+                "1800": entry[3],
+                "2200": entry[4]
 
             }
         }
@@ -115,6 +180,10 @@ def get_new_cars_last_week():
                             WHEN TIME(timestamp) BETWEEN '09:00:00' AND '11:00:00' THEN 1 
                             ELSE NULL 
                         END) AS Count_09_11,
+                        COUNT(CASE 
+                            WHEN TIME(timestamp) BETWEEN '14:00:00' AND '16:00:00' THEN 1 
+                            ELSE NULL 
+                        END) AS Count_14_16,
                         COUNT(CASE 
                             WHEN TIME(timestamp) BETWEEN '18:00:00' AND '20:00:00' THEN 1 
                             ELSE NULL 

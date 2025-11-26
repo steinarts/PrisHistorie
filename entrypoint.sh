@@ -6,6 +6,23 @@ set -e
 
 # Her kan du legge til eventuelle forberedende kommandoer
 # som databasemigrasjoner, vente på avhengigheter, etc.
+LOCKFILE="/app/202504241625_Migration.lock"
+
+# Check if the lock file exists
+#if [ ! -f "$LOCKFILE" ]; then
+#    echo "Running migration script..."
+    # Run the migration script
+#    python /app/202504241625_Migration.py
+
+    # Create a lock file to indicate the migration has been executed
+#    touch "$LOCKFILE"
+#else
+#    echo "Migration has already been executed, skipping..."
+#fi
+
+#python /app/Migration_expansion.py
+exec "$@"
+
 
 # Kjør PrisHistorie.py script
 # echo "Kjører PrisHistorie.py..."

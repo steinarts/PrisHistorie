@@ -19,8 +19,8 @@ RUN apt-get install -y microsoft-edge-stable
 # Last ned og installer msedgedriver
 #RUN wget https://msedgedriver.azureedge.net/118.0.2088.46/edgedriver_linux64.zip
 #RUN wget https://msedgedriver.azureedge.net/120.0.2210.91/edgedriver_linux64.zip
-RUN wget https://msedgedriver.azureedge.net/126.0.2592.87/edgedriver_linux64.zip
-RUN unzip edgedriver_linux64.zip -d /usr/local/bin
+#RUN wget https://msedgedriver.azureedge.net/126.0.2592.87/edgedriver_linux64.zip
+#RUN unzip edgedriver_linux64.zip -d /usr/local/bin
 
 # Anta at msedgedriver er lastet ned og plassert i /usr/local/bin
 ENV PATH="/usr/local/bin:${PATH}"
@@ -31,8 +31,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Kopier PrisHistorie.py og cron-jobbfilen til arbeidskatalogen i Docker
 COPY PrisHistorie.py /app/
+COPY dbFunctions.py /app/
+COPY KjoretoyAPI.py /app/
 COPY cronjob /etc/cron.d/cronjob
-COPY data/PrisHistorie.db /app/data/PrisHistorie.db
+#flytter bruk at db fra image to disk da dette er anbefalt for sqlite
+#COPY data/PrisHistorie.db /app/data/PrisHistorie.db
+COPY dateUtils.py /app/
+
+#COPY Migration/202504241625_Migration.py /app/
 
 # Gi riktige rettigheter og opprett cron-loggfil
 RUN chmod 0644 /etc/cron.d/cronjob && touch /var/log/cron.log
