@@ -301,10 +301,10 @@ async def get_statusdata_on_car(cursor, session, car_id):
                     print("Parent div for 'Sist endret' ble ikke funnet.")
                     dato = None  # ✅ Set default value when parent div is not found
             else:
-                print("Elementet med 'Sist endret' ble ikke funnet.")
+                #print("Elementet med 'Sist endret' ble ikke funnet.")
                 dato = None  # ✅ Set default value when "Sist endret" paragraph is not found
         else:
-            print("Overordnet <div>-element ble ikke funnet.")
+            #print("Overordnet <div>-element ble ikke funnet.")
             dato = None  # ✅ Set default value when main div is not found
 
         return status, dato
@@ -503,6 +503,17 @@ async def TransferSoldCarsInCars(session):
                     if statusdata is None:
                         continue
 
+                    # ✅ Check if statusdata[1] (date) exists before processing
+                    date_string = statusdata[1] if len(statusdata) > 1 and statusdata[1] is not None else None
+                    converted_date = None
+                    
+                    if date_string:
+                        try:
+                            converted_date = convert_date_format_fra_annonse(date_string)
+                        except (ValueError, TypeError) as e:
+                            print(f"❌ Could not convert date '{date_string}' for Car ID: {car_id}: {e}")
+                            converted_date = None
+
                     car_details = {
                         "RegNr": regno,
                         "id": car_id,
@@ -510,7 +521,7 @@ async def TransferSoldCarsInCars(session):
                         "Timestamp": timestamp,
                         "registrert_forstegang_pa_eierskap": None,
                         "status": statusdata[0],
-                        "datoSistEndretAnnonse": convert_date_format_fra_annonse(statusdata[1])
+                        "datoSistEndretAnnonse": converted_date  # ✅ Now safely converted
                     }
 
                     await get_details_from_VVAPI(vin, regno, car_details)
@@ -541,6 +552,9 @@ async def TransferSoldCarsInCars(session):
 
             except Exception as e:
                 print(f"En feil oppstod under overføring av solgte biler: {e}")
+                # ✅ Add more detailed error information for debugging
+                import traceback
+                print(f"Full error traceback: {traceback.format_exc()}")
 
 async def get_details_from_VVAPI(vin, regno, car_details):
     def is_429_error(resultat):
