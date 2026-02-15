@@ -22,6 +22,34 @@ async def db_connection():
     finally:
         await conn.close()
 
+async def findOrCreateBodyTypeId(cursor, bodyType):
+    """
+    Finner eller oppretter en karosseritype i databasen.
+    
+    Dette er et klassisk "lookup or insert" mønster som:
+    1. Sjekker om karosseritypen allerede eksisterer
+    2. Oppretter en ny rad hvis den ikke finnes
+    3. Returnerer ID-en for bruk som foreign key i cars-tabellen
+    
+    @param cursor: Database cursor for asynkrone operasjoner
+    @param bodyType: Karosseritype som streng (f.eks. 'Sedan', 'SUV', 'Stasjonsvogn')
+    @return: ID for karosseritypen (int), eller None hvis bodyType er ugyldig
+    @throws: sqlite3.Error ved databasefeil
+    """
+    if bodyType is None or bodyType.strip() == "":
+        return None
+
+    bodyTypeClean = bodyType.strip()
+
+    await cursor.execute("SELECT id FROM BodyType WHERE BodyType = ?", (bodyTypeClean,))
+    result = await cursor.fetchone()
+
+    if result:
+        return result[0]
+    else:
+        await cursor.execute("INSERT INTO BodyType (BodyType) VALUES (?)", (bodyTypeClean,))
+        return cursor.lastrowid
+    
 async def FindCarsForUpdateOfVin(cursor):
     await cursor.execute("SELECT car_id, model FROM cars WHERE vin = 0 LIMIT 5000")
     rows = await cursor.fetchall()
@@ -55,22 +83,79 @@ async def  UpdateVinOnInactiveCar(cursor, car_details):
 
 
 async def FindCarsForUpdateOfStatus(cursor):
-
+    # ✅ Read last processed ID from tracking table
+    lastProcessedId = await get_last_processed_car_id(cursor)
+    
+    print(f"🔄 Resuming from car_id > {lastProcessedId}")
+    
     await cursor.execute("""
-                        SELECT car_id, vin, regno, timestamp
-                        FROM cars
-                        WHERE (regno is Not NULL
-                        OR vin is NOT NULL AND vin != 0)
-                        AND timestamp is not NULL
-                        AND id > 581000
-                        order by timestamp
-                        LIMIT 20000                         
-                         """)
-
+        SELECT car_id, vin, regno, timestamp
+        FROM cars
+        WHERE (regno IS NOT NULL OR (vin IS NOT NULL AND vin != '0'))
+        AND timestamp IS NOT NULL
+        AND car_id > ?  
+        ORDER BY car_id ASC  
+        LIMIT 20000                         
+    """, (lastProcessedId,))
+    
     rows = await cursor.fetchall()
     # Returner en liste av dictionaryer med car_id, vin, regno
     return [(row[0], row[1], row[2], row[3]) for row in rows]
 
+async def get_last_processed_car_id(cursor):
+    """
+    Retrieves the last processed car_id from tracking table.
+    Used by FindCarsForUpdateOfStatus to determine where to continue processing.
+    
+    This function is the "reader" in our progress tracking system. It queries
+    the single-row tracking table to find out which car_id was last successfully
+    processed, allowing automatic resumption without manual intervention.
+    
+    @param cursor: aiosqlite cursor for database operations
+    @return: Last processed car_id (int), or 0 if no progress exists
+    @throws: sqlite3.Error on database failures
+    @author: GitHub Copilot
+    """
+    await cursor.execute("""
+        SELECT last_processed_car_id 
+        FROM status_check_progress 
+        WHERE id = 1
+    """)
+    result = await cursor.fetchone()
+    return result[0] if result else 0
+
+async def update_status_check_progress(cursor, highestCarId, carsProcessed):
+    """
+    Updates the progress tracking table after batch completion.
+    Saves highest car_id processed so next run can continue from that point.
+    
+    This function is the "writer" in our progress tracking system. After processing
+    a batch of 20k cars, it saves the highest car_id encountered so the next run
+    knows exactly where to resume. Also tracks lifetime statistics for monitoring.
+    
+    Example usage:
+        # After processing batch with car_ids 45893-89234:
+        await update_status_check_progress(cursor, 89234, 20000)
+        # Next run will automatically start from car_id > 89234
+    
+    @param cursor: aiosqlite cursor for database operations
+    @param highestCarId: Highest car_id processed in this batch (int)
+    @param carsProcessed: Number of cars processed in this batch (int)
+    @return: None
+    @throws: sqlite3.Error on database failures
+    @author: GitHub Copilot
+    """
+    await cursor.execute("""
+        UPDATE status_check_progress
+        SET last_processed_car_id = ?,
+            last_run_timestamp = datetime('now', 'localtime'),
+            total_cars_processed = total_cars_processed + ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+    """, (highestCarId, carsProcessed))
+
+async def get_timestamp_db(cursor):
+    return cursor.execute("SELECT datetime('now', 'localtime')").fetchone()[0]
 
 async def FindCarsForUpdateOfFreetext(cursor):
 
@@ -207,12 +292,12 @@ async def insert_car(cursor, car, timestamp):
     try:
         await cursor.execute("""
             INSERT INTO cars (car_id, make, model, year, km, gear, fuelTypeId, vin, timestamp,
-                              freeTextModel, regNo, location, url, latitude, longitude, imagelink, dealerSegmentId, organisationName, adTimestamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+                              freeTextModel, regNo, location, url, latitude, longitude, imagelink, dealerSegmentId, organisationName, adTimestamp, bodyTypeId)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
         """, (
             car.id, car.make, car.model, car.year, car.km, car.gearbox, car.fuel,
             car.vin, timestamp, car.heading, car.regNo, car.location, car.url, car.latitude, 
-            car.longitude, car.image, car.dealerSegmentId, car.organisationName, car.timestamp
+            car.longitude, car.image, car.dealerSegmentId, car.organisationName, car.timestamp, car.bodyTypeId
         ))
     except sqlite3.IntegrityError as e:
         if 'UNIQUE constraint failed: cars.car_id' in str(e):
@@ -251,9 +336,9 @@ async def move_car_to_inactive(car_id, now):
                 # Flytt bilen til inactivecars
                 await cursor.execute("""
                     INSERT INTO inactivecars (car_id, make, model, year, km, gear, fuelTypeId, vin, freeTextModel, regNo, location, url, latitude, longitude, imagelink, 
-                                     timestamp, inactivated_timestamp, dealerSegmentId, organisationName, adTimestamp)
+                                     timestamp, inactivated_timestamp, dealerSegmentId, organisationName, adTimestamp, bodyTypeId)
                     SELECT car_id, make, model, year, km, gear, fuelTypeId, vin, freeTextModel, regNo, location, url, latitude, longitude, imagelink, timestamp, ?, 
-                                     dealerSegmentId, organisationName, adTimestamp
+                                     dealerSegmentId, organisationName, adTimestamp, bodyTypeId
                     FROM cars WHERE car_id = ?
                 """, (now, car_id))
 

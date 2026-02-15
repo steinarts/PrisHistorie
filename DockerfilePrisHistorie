@@ -1,7 +1,7 @@
 # PrisHistorie.py Dockerfile med cron
 
-# Bruk Python 3.10 som basesystem
-FROM python:3.10
+# Bruk Python 3.11 som basesystem
+FROM python:3.11
 
 # Installer cron
 RUN apt-get update && apt-get -y install cron
@@ -33,12 +33,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY PrisHistorie.py /app/
 COPY dbFunctions.py /app/
 COPY KjoretoyAPI.py /app/
+COPY vin_validation.py /app/
 COPY cronjob /etc/cron.d/cronjob
 #flytter bruk at db fra image to disk da dette er anbefalt for sqlite
 #COPY data/PrisHistorie.db /app/data/PrisHistorie.db
 COPY dateUtils.py /app/
 
-#COPY Migration/202504241625_Migration.py /app/
+#COPY Migration/202512061315_AddStatusCheckProgress.py /app/
 
 # Gi riktige rettigheter og opprett cron-loggfil
 RUN chmod 0644 /etc/cron.d/cronjob && touch /var/log/cron.log

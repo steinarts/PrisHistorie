@@ -1,7 +1,7 @@
 # FastAPI Dockerfile
 
-# Bruk Python 3.10 som basesystem
-FROM python:3.10
+# Bruk Python 3.11 som basesystem
+FROM python:3.11
 
 # Sett arbeidskatalogen i Docker
 WORKDIR /app
