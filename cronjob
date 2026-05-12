@@ -1,4 +1,5 @@
 # Cronjob-fil for å kjøre PrisHistorie.py kl 09.18 og 22 hver dag
-0 09,10,14,18,22 * * * cd /app && /usr/local/bin/python3 /app/PrisHistorie.py >> /var/log/cron.log 2>&1
+0 09,10,14,18,19,22 * * * cd /app && /usr/local/bin/python3 /app/PrisHistorie.py >> /var/log/cron.log 2>&1
+10 14 * * * cd /app && /usr/local/bin/python3 /app/PrisHistorie.py >> /var/log/cron.log 2>&1
 
 

@@ -9,15 +9,24 @@ import aiohttp
 import asyncio
 import aiosqlite
 import platform
+import os
 from dataclasses import dataclass
 from dbFunctions import  update_status_check_progress,UpdateModelNoOnCars, FindCarsForUpdateOfStatus, UpdateFreeTextOnCars, FindCarsForUpdateOfFreetext, UpdateVinOnCars, UpdateRegNoOnInactiveCars, FindCarsForUpdateOfVin, FindCarsForUpdateOfRegNo, UpdateVinOnInactiveCar, move_car_to_inactive, verify_inactive_car, get_current_price, insert_price, does_car_id_exist, insert_car, findOrCreateBodyTypeId
 from KjoretoyAPI import hent_kjoretoydata
 from vin_validation import is_valid_vin
+from api_health_check import ApiHealthCheck
 import locale
 from dateUtils import (
     convert_date_format_fra_annonse,
     convert_iso_to_standard_format,
 )
+
+# Last miljøvariabler fra .env fil hvis den finnes
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv ikke installert, bruk systemets miljøvariabler
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
@@ -510,6 +519,19 @@ async def get_car_makes(session, api_url):
     """Henter navn og id fra bilmerker (make) og tilhørende modeller fra API-et."""
     makes_and_models = []
     data = await fetch_with_retry(api_url, session, parse_json=True)
+    
+    # 🔍 Health check: Verifiser API-struktur
+    healthCheck = ApiHealthCheck()
+    if not healthCheck.checkFinnApiStructure(data):
+        print(healthCheck.getReport())
+        healthCheck.logResults()
+        healthCheck.sendEmailAlert("🚨 KRITISK: Finn.no API har endret struktur!")
+        raise Exception("❌ KRITISK: Finn.no API har endret struktur! Sjekk logs/api_health_check.log")
+    
+    if healthCheck.hasWarnings():
+        print(healthCheck.getReport())
+        healthCheck.logResults()
+        healthCheck.sendEmailAlert("⚠️ Finn.no API advarsler")
 
     # Går gjennom 'filters' for å hente "make" og deres "models"
     return get_makes_with_models(data, makes_and_models)

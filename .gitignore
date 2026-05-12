@@ -2,8 +2,17 @@
 __pycache__/
 *.py[cod]
 
+# Virtual environments:
+venv/
+.venv/
+env/
+ENV/
+
 # Databasefiler:
 *.db
+
+# Database backup folder:
+data/
 
 # IDE-spesifikke filer (f.eks. for VS Code, PyCharm, etc.):
 .vscode/
@@ -11,9 +20,13 @@ __pycache__/
 
 # Loggfiler:
 *.log
+logs/
 
 # Kompilerte filer:
 *.pyc
+
+# Backup-filer:
+*.bak
 
 # Testfiler (unntatt hvis de er nødvendige for prosjektet):
 test*.py
@@ -28,3 +41,4 @@ Tests/
 # Andre filer og kataloger som ikke bør spores (legg til etter behov):
 .env
 secrets.yaml
+backup_db.ps1

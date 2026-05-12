@@ -34,6 +34,7 @@ COPY PrisHistorie.py /app/
 COPY dbFunctions.py /app/
 COPY KjoretoyAPI.py /app/
 COPY vin_validation.py /app/
+COPY api_health_check.py /app/
 COPY cronjob /etc/cron.d/cronjob
 #flytter bruk at db fra image to disk da dette er anbefalt for sqlite
 #COPY data/PrisHistorie.db /app/data/PrisHistorie.db
