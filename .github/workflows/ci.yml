@@ -52,6 +52,11 @@ jobs:
           print("Wrote requirements.ci.txt as UTF-8")
           PY
 
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-dev libxslt1-dev zlib1g-dev
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
