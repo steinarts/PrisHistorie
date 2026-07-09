@@ -44,6 +44,7 @@ COPY dateUtils.py /app/
 
 # Gi riktige rettigheter og opprett cron-loggfil
 RUN chmod 0644 /etc/cron.d/cronjob && touch /var/log/cron.log
+RUN sed -i 's/\r$//' /etc/cron.d/cronjob
 RUN crontab /etc/cron.d/cronjob
 
 # justerer tidssonen
