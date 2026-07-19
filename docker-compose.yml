@@ -1,0 +1,25 @@
+services:
+  prishistorie-cron:
+    build:
+      context: .
+      dockerfile: DockerfilePrisHistorie
+    container_name: prishistorie-cron
+    env_file:
+      - .env
+    volumes:
+      - C:/docker-backup/mindb:/app/data
+    command: ["sh", "-c", "printenv > /etc/environment && service cron start && tail -f /dev/null"]
+    restart: unless-stopped
+
+  prishistorie-api:
+    build:
+      context: .
+      dockerfile: DockerfileFastAPI
+    container_name: prishistorie-api
+    env_file:
+      - .env
+    volumes:
+      - C:/docker-backup/mindb:/app/data
+    ports:
+      - "8001:8000"
+    restart: unless-stopped

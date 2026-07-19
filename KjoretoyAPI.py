@@ -1,13 +1,16 @@
 import asyncio
 from datetime import datetime, timezone
-import pytz
-import requests
 import os
 from dotenv import load_dotenv, find_dotenv
 import aiohttp
 
 # Last inn miljøvariabler fra .env-filen
-#load_dotenv(find_dotenv())
+dotenv_path = find_dotenv(usecwd=True)
+if dotenv_path:
+    load_dotenv(dotenv_path)
+else:
+    # Fallback til standard oppslag hvis prosjektet kjøres fra annen mappe.
+    load_dotenv()
 
 # Global semaphore for Vegvesen API
 vegvesenSemaphore = asyncio.Semaphore(3)  # Max 3 concurrent requests
@@ -19,10 +22,17 @@ async def hent_kjoretoydata(parameter, verdi):
     """
     
     url = "https://akfell-datautlevering.atlas.vegvesen.no/enkeltoppslag/kjoretoydata"
-    api_key = os.getenv("KJORETOY_API_KEY")
+    api_key = (
+        os.getenv("KJORETOY_API_KEY")
+        or os.getenv("VEGVESEN_API_KEY")
+        or os.getenv("SVV_API_KEY")
+    )
 
     if not api_key:
-        print("API-nøkkel mangler i miljøvariabler.")
+        print(
+            "API-nøkkel mangler i miljøvariabler. "
+            "Sett KJORETOY_API_KEY (evt. VEGVESEN_API_KEY/SVV_API_KEY) i .env."
+        )
         return {"feil": "API-nøkkel mangler"}
 
     headers = {"SVV-Authorization": api_key}
