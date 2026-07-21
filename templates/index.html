@@ -12,7 +12,9 @@
     </form>
 
     {% if price_data %}
-    <h2>Price Data for Car ID: {{ price_data.0.0 }}</h2>
+    <h2>Price Data for Car ID: {{ price_data.0.4 }}</h2>
+    <h2>Make/model: {{ price_data.0.2 }} {{ price_data.0.3 }}</h2>
+    
     <table border="1">
         <tr>
             <th>Date</th>

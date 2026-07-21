@@ -1,0 +1,22 @@
+# FastAPI Dockerfile
+
+# Bruk Python 3.11 som basesystem
+FROM python:3.11
+
+# Sett arbeidskatalogen i Docker
+WORKDIR /app
+
+# Kopier requirements.txt og installer avhengighetene
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Kopier FastAPI-applikasjonsfiler til arbeidskatalogen i Docker
+COPY PrishistoreCB_Fast.py /app/
+
+# FastAPI kjører på port 8000
+EXPOSE 8001
+
+RUN apt-get update && apt-get install -y sqlite3
+
+# Kjør FastAPI-applikasjonen
+CMD ["uvicorn", "PrishistoreCB_Fast:app", "--host", "0.0.0.0", "--reload"]
