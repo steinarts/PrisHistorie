@@ -197,6 +197,7 @@ async def insert_car_and_price(session, queue):
     import time
     
     startTime = time.time()
+    runStartTimestamp = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
     processedCount = 0
     newCarsInserted = 0
     existingCarsUpdated = 0
@@ -232,6 +233,7 @@ async def insert_car_and_price(session, queue):
         queue.task_done()
     
     totalElapsed = time.time() - startTime
+    runStopTimestamp = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
     overallRate = processedCount / totalElapsed if totalElapsed > 0 else 0
     
     print(f"\n{'='*60}")
@@ -239,6 +241,8 @@ async def insert_car_and_price(session, queue):
     print(f"   Total processed: {processedCount}")
     print(f"   New cars inserted: {newCarsInserted}")
     print(f"   Existing cars updated: {existingCarsUpdated}")
+    print(f"   Start time: {runStartTimestamp}")
+    print(f"   Stop time: {runStopTimestamp}")
     print(f"   Time: {totalElapsed:.1f}s")
     print(f"   Rate: {overallRate:.1f} cars/sec")
     print(f"{'='*60}\n")
