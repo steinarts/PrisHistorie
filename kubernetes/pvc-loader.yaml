@@ -1,5 +1,4 @@
 # Utility pod for manually inspecting/copying files to and from the PVC.
-# Not required for the PrisHistorie application itself.
 apiVersion: v1
 kind: Pod
 metadata:
