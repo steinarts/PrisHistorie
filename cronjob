@@ -1,4 +1,1 @@
-0 9,10,14,18,19,22 * * * cd /app && /bin/sh -c '. /etc/environment; echo "[$(date)] Starting PrisHistorie.py"; /usr/local/bin/python3 /app/PrisHistorie.py' >> /var/log/cron.log 2>&1
-
-
-
+0 9,10,14,18,22 * * * cd /app && /bin/sh -c '. /etc/environment; echo "[$(date)] Starting PrisHistorie.py"; /usr/local/bin/python3 /app/PrisHistorie.py' >> /var/log/cron.log 2>&1

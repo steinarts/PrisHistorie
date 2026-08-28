@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prishistorie-api
+  namespace: prishistorie
+  annotations:
+    ingress.cilium.io/service-type: NodePort
+    ingress.cilium.io/insecure-node-port: "31072"
+    ingress.cilium.io/secure-node-port: "31063"
+spec:
+  ingressClassName: cilium
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prishistorie-api
+                port:
+                  number: 8000

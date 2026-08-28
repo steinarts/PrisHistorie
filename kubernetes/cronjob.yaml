@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: prishistorie-cron
+  namespace: prishistorie
+spec:
+  schedule: "0 9,10,14,18,22 * * *"
+  timeZone: "Europe/Oslo"
+
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+
+          containers:
+            - name: prishistorie-cron
+              image: prishistorie-prishistorie-cron
+              imagePullPolicy: IfNotPresent
+              
+              envFrom:
+              - secretRef:
+                  name: prishistorie-secrets
+
+
+              command:
+                - /usr/local/bin/python3
+                - /app/PrisHistorie.py
+
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: prishistorie-data
