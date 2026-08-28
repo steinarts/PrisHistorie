@@ -26,7 +26,10 @@ spec:
               - secretRef:
                   name: prishistorie-secrets
 
-
+              env:
+                - name: EMAIL_ALERTS_ENABLED
+                  value: "true"
+              
               command:
                 - /usr/local/bin/python3
                 - /app/PrisHistorie.py
@@ -39,3 +42,4 @@ spec:
             - name: data
               persistentVolumeClaim:
                 claimName: prishistorie-data
+

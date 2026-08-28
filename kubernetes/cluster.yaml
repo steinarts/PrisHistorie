@@ -1,6 +1,10 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 
+networking:
+  disableDefaultCNI: true
+  kubeProxyMode: "none"
+
 nodes:
   - role: control-plane
     extraPortMappings:
@@ -10,9 +14,5 @@ nodes:
       - containerPort: 31063
         hostPort: 31063
         protocol: TCP
-
   - role: worker
   - role: worker
-
-networking:
-  disableDefaultCNI: true
