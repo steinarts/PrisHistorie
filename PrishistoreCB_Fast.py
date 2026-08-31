@@ -1,11 +1,17 @@
-from fastapi import FastAPI, Request, Response
-import xml.etree.ElementTree as ET
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import logging
-import sqlite3
-from contextlib import contextmanager
+import asyncio
 import json
+import logging
+import os
+import sys
+import xml.etree.ElementTree as ET
+from contextlib import asynccontextmanager
+
+import psycopg
+from fastapi import FastAPI, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -22,13 +28,11 @@ app.add_middleware(
 class PriceRequest(BaseModel):
     car_id: int
 
-@contextmanager
-def db_connection():
-    conn = sqlite3.connect('data/PrisHistorie.db')
-    try:
+@asynccontextmanager
+async def db_connection():
+    async with await psycopg.AsyncConnection.connect(os.environ["PG_DSN"]) as conn:
         yield conn
-    finally:
-        conn.close()
+
 
 @app.get("/CheckServer")
 async def root():
@@ -42,83 +46,68 @@ async def index(request: Request, price_request: PriceRequest):
     client_host = request.client.host
     logging.info(f"Search query: {car_id}, Client IP: {client_host}")
       
-    price_data = get_price_data(car_id)
+    price_data = await get_price_data(car_id)
     return {"price_data": price_data}
 
 
 
-def get_price_data(car_id):
-    # Koble til SQLite-databasen
-    with db_connection() as conn:
-        cursor = conn.cursor()
+async def get_price_data(car_id):
+    async with db_connection() as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(
+                """
+                WITH vin_list AS (
+                    SELECT vin
+                    FROM cars
+                    WHERE car_id = %s
+                    UNION
+                    SELECT vin
+                    FROM cars
+                    WHERE car_id = %s AND ad_status = 'inactive'
+                ),
+                car_id_list AS (
+                    SELECT car_id
+                    FROM cars
+                    WHERE vin IN (SELECT vin FROM vin_list)
+                    UNION
+                    SELECT %s::bigint AS car_id
+                )
 
-        # Hent prisdata for den angitte bil-IDen
-        cursor.execute("""
-            WITH vin_list AS (
-                -- Hent vin-nummeret for car_id = 389224182 fra begge tabeller
-                SELECT vin 
-                FROM cars 
-                WHERE car_id = ?
-                UNION 
-                SELECT vin 
-                FROM inactivecars 
-                WHERE car_id = ?
-            ),
-            car_idList AS (
-                -- Hent alle car_id-er som har dette vin-nummeret fra begge tabeller
-                SELECT car_id 
-                FROM cars 
-                WHERE vin IN (SELECT vin FROM vin_list)
-                UNION 
-                SELECT car_id 
-                FROM inactivecars 
-                WHERE vin IN (SELECT vin FROM vin_list)
-                UNION 
-                -- Inkluder den opprinnelige car_id = ? eksplisitt
-                SELECT ? AS car_id
+                SELECT
+                    c.car_id AS current_car_id,
+                    c.vin,
+                    p.price,
+                    c.km,
+                    p.timestamp AS price_timestamp,
+                    NULL AS listed_timestamp,
+                    NULL AS sold_timestamp,
+                    NULL AS days_listed
+                FROM cars c
+                JOIN prices p ON c.car_id = p.car_id
+                WHERE c.car_id IN (SELECT car_id FROM car_id_list)
+                  AND c.ad_status = 'active'
+
+                UNION ALL
+
+                SELECT
+                    c.car_id AS inactive_car_id,
+                    c.vin,
+                    p.price,
+                    c.km,
+                    p.timestamp AS price_timestamp,
+                    c.first_seen_at AS listed_timestamp,
+                    c.ad_status_changed_at AS sold_timestamp,
+                    EXTRACT(DAY FROM (c.ad_status_changed_at - c.first_seen_at))::integer AS days_listed
+                FROM cars c
+                JOIN prices p ON c.car_id = p.car_id
+                WHERE c.car_id IN (SELECT car_id FROM car_id_list)
+                  AND c.ad_status = 'inactive'
+
+                ORDER BY price_timestamp;
+                """,
+                (car_id, car_id, car_id),
             )
-
-            SELECT 
-                c.car_id AS current_car_id,
-                c.vin,
-                p.price,
-                c.km,
-                p.timestamp AS price_timestamp,
-                NULL AS listed_timestamp, -- Alltid NULL for aktive biler
-                NULL AS sold_timestamp,   -- Alltid NULL for aktive biler
-                NULL AS days_listed       -- Alltid NULL for aktive biler
-            FROM 
-                cars c
-            JOIN 
-                prices p ON c.car_id = p.car_id
-            WHERE 
-                c.car_id IN (SELECT car_id FROM car_idList)
-                       
-            UNION
-                       
-            SELECT 
-                ic.car_id AS inactive_car_id,
-                ic.vin,
-                p.price,
-                ic.km,
-                p.timestamp AS price_timestamp,
-                ic.timestamp AS listed_timestamp,
-                ic.inactivated_timestamp AS sold_timestamp,
-                CAST(JULIANDAY(ic.inactivated_timestamp) - JULIANDAY(ic.timestamp) AS INTEGER) AS days_listed
-            FROM 
-                inactivecars ic
-            JOIN 
-                prices p ON ic.car_id = p.car_id
-            WHERE 
-                ic.car_id IN (SELECT car_id FROM car_idList)
-
-            ORDER BY 
-                price_timestamp;
-        """, (car_id, car_id, car_id))
-        """cursor.execute("SELECT timestamp, price FROM prices WHERE car_id=?", (car_id,))"""
-        price_data = cursor.fetchall()
-
-    return price_data
+            return await cursor.fetchall()
 
 def dict_to_xml(tag, d):
     """
@@ -139,8 +128,8 @@ async def index(request: Request, format: str = "json"):
     client_host = request.client.host
     logging.info(f"GetNewCarsLastWeek, Client IP: {client_host}")
 
-    raw_data = get_new_cars_last_week()
-        # Transform the data into a list of dictionaries
+    raw_data = await get_new_cars_last_week()
+    # Transform the data into a list of dictionaries
     data = [
         {
             "date": entry[0],
@@ -164,44 +153,39 @@ async def index(request: Request, format: str = "json"):
         xml_str = ET.tostring(root, encoding='utf-8').decode('utf-8')
         return Response(content=xml_str, media_type="application/xml")
         
-    json_str = json.dumps({"stats_data": data}, ensure_ascii=False)
-    return Response(content=json_str, media_type="application/json")
+    return JSONResponse(content=jsonable_encoder({"stats_data": data}))
     
 
-def get_new_cars_last_week():
-    # Koble til SQLite-databasen
-    with db_connection() as conn:
-        cursor = conn.cursor()
+async def get_new_cars_last_week():
+    async with db_connection() as conn:
+        logging.info("DATABASE DRIVER: %s", "psycopg")
+        logging.info("DATABASE HOST: %s", conn.info.host)
+        logging.info("DATABASE PORT: %s", conn.info.port)
+        logging.info("DATABASE NAME: %s", conn.info.dbname)
 
-        # Henter stats for nye biler lagt til i løpet av den siste uken
-        cursor.execute("""SELECT 
-                        DATE(timestamp) AS Date,
-                        COUNT(CASE 
-                            WHEN TIME(timestamp) BETWEEN '09:00:00' AND '11:00:00' THEN 1 
-                            ELSE NULL 
-                        END) AS Count_09_11,
-                        COUNT(CASE 
-                            WHEN TIME(timestamp) BETWEEN '14:00:00' AND '16:00:00' THEN 1 
-                            ELSE NULL 
-                        END) AS Count_14_16,
-                        COUNT(CASE 
-                            WHEN TIME(timestamp) BETWEEN '18:00:00' AND '20:00:00' THEN 1 
-                            ELSE NULL 
-                        END) AS Count_18_20,
-                        COUNT(CASE 
-                            WHEN (TIME(timestamp) >= '22:00:00' OR TIME(timestamp) < '00:00:00') THEN 1 
-                            ELSE NULL 
-                        END) AS Count_22_00
-                    FROM cars
-                    WHERE DATE(timestamp) >= DATE('now', '-7 day')
-                    GROUP BY DATE(timestamp)
-                    ORDER BY DATE(timestamp) DESC;
-                    """)
-        price_data = cursor.fetchall()
+        async with conn.cursor() as cursor:
+            await cursor.execute("SELECT current_database(), inet_server_addr(), inet_server_port()")
+            logging.info("DATABASE SERVER INFO: %s", await cursor.fetchone())
 
-    return price_data
+            await cursor.execute(
+                """
+                SELECT
+                    DATE(first_seen_at AT TIME ZONE 'Europe/Oslo') AS date,
+                    COUNT(CASE WHEN EXTRACT(HOUR FROM first_seen_at AT TIME ZONE 'Europe/Oslo') BETWEEN 9 AND 11 THEN 1 END) AS count_09_11,
+                    COUNT(CASE WHEN EXTRACT(HOUR FROM first_seen_at AT TIME ZONE 'Europe/Oslo') BETWEEN 14 AND 16 THEN 1 END) AS count_14_16,
+                    COUNT(CASE WHEN EXTRACT(HOUR FROM first_seen_at AT TIME ZONE 'Europe/Oslo') BETWEEN 18 AND 20 THEN 1 END) AS count_18_20,
+                    COUNT(CASE WHEN EXTRACT(HOUR FROM first_seen_at AT TIME ZONE 'Europe/Oslo') >= 22 OR EXTRACT(HOUR FROM first_seen_at AT TIME ZONE 'Europe/Oslo') < 1 THEN 1 END) AS count_22_00
+                FROM cars
+                WHERE first_seen_at >= CURRENT_TIMESTAMP - INTERVAL '7 days'
+                GROUP BY DATE(first_seen_at AT TIME ZONE 'Europe/Oslo')
+                ORDER BY DATE(first_seen_at AT TIME ZONE 'Europe/Oslo') DESC
+                """
+            )
+            return await cursor.fetchall()
 
 
 if __name__ == "__main__":
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8001)

@@ -1,17 +1,36 @@
-import sqlite3
-from contextlib import contextmanager
-from contextlib import asynccontextmanager
-import time
-from bs4 import BeautifulSoup
-from datetime import datetime, timezone
-from requests.exceptions import ConnectTimeout
-import aiohttp
 import asyncio
-import aiosqlite
-import platform
 import os
+import platform
+import sys
+import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from dbFunctions import  update_status_check_progress,UpdateModelNoOnCars, FindCarsForUpdateOfStatus, UpdateFreeTextOnCars, FindCarsForUpdateOfFreetext, UpdateVinOnCars, UpdateRegNoOnInactiveCars, FindCarsForUpdateOfVin, FindCarsForUpdateOfRegNo, UpdateVinOnInactiveCar, move_car_to_inactive, verify_inactive_car, get_current_price, insert_price, does_car_id_exist, insert_car, findOrCreateBodyTypeId
+from datetime import datetime, timezone
+
+import aiohttp
+from bs4 import BeautifulSoup
+from requests.exceptions import ConnectTimeout
+
+from dbFunctions import (
+    FindCarsForUpdateOfFreetext,
+    FindCarsForUpdateOfRegNo,
+    FindCarsForUpdateOfStatus,
+    FindCarsForUpdateOfVin,
+    UpdateFreeTextOnCars,
+    UpdateModelNoOnCars,
+    UpdateRegNoOnInactiveCars,
+    UpdateVinOnCars,
+    UpdateVinOnInactiveCar,
+    db_connection_async,
+    does_car_id_exist,
+    findOrCreateBodyTypeId,
+    get_current_price,
+    insert_car,
+    insert_price,
+    move_car_to_inactive,
+    update_status_check_progress,
+    verify_inactive_car,
+)
 from KjoretoyAPI import hent_kjoretoydata
 from vin_validation import is_valid_vin
 from api_health_check import ApiHealthCheck
@@ -93,29 +112,15 @@ def is_valid_regno(regno):
     return True
 
 
-@contextmanager
-def db_connection():
-    conn = sqlite3.connect('data/PrisHistorie.db')
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-@asynccontextmanager 
+@asynccontextmanager
 async def db_connection():
-    conn = await aiosqlite.connect('data/PrisHistorie.db')
-    await conn.execute("PRAGMA journal_mode=WAL;")
-    await conn.execute("PRAGMA busy_timeout = 5000;")  # 5 sekunder
-    await conn.execute("PRAGMA synchronous=NORMAL;")
-    await conn.commit()
-    try:
+    async with db_connection_async() as conn:
         yield conn
-    finally:
-        await conn.close()
+
 
 @asynccontextmanager
 async def db_connection_locked():
-    async with db_write_lock:             # ← 1 writer om gangen
+    async with db_write_lock:
         async with db_connection() as conn:
             yield conn
             
@@ -1102,9 +1107,8 @@ def getTimeStamp(msg):
 
 if __name__ == "__main__":
     print(getTimeStamp("Oppdatering av priser og biler startet:"))
-    # fixing event loop is closed error in windows
     print(f"Platform: {platform.system()}")
-    if platform.system()=='Windows':
+    if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
     print(getTimeStamp("Oppdatering av priser og biler fullført:"))
