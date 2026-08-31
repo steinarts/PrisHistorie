@@ -1,0 +1,19 @@
+# Utility pod for manually inspecting/copying files to and from the PVC.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pvc-loader
+  namespace: prishistorie
+spec:
+  restartPolicy: Never
+  containers:
+    - name: pvc-loader
+      image: alpine:3.20
+      command: ["sh", "-c", "while true; do sleep 3600; done"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: prishistorie-data

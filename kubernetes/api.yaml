@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prishistorie-api
+  namespace: prishistorie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prishistorie-api
+  template:
+    metadata:
+      labels:
+        app: prishistorie-api
+    spec:
+      containers:
+        - name: api
+          image: prishistorie-prishistorie-api
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: prishistorie-data
