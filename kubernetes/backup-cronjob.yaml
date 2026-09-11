@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: CronJob
+
+metadata:
+  name: prishistorie-postgres-backup
+  namespace: prishistorie
+
+spec:
+  schedule: "0 23 * * *"
+  timeZone: "Europe/Oslo"
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+
+          containers:
+            - name: postgres-backup
+              image: postgres:17
+
+              env:
+                - name: PG_DSN
+                  valueFrom:
+                    secretKeyRef:
+                      name: prishistorie-postgres-secret
+                      key: PG_DSN
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  pg_dump "$PG_DSN" \
+                    --format=custom \
+                    --file=/backup/prishistorie-$(date +%Y-%m-%d_%H-%M-%S).dump
+
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: prishistorie-postgres-backup
