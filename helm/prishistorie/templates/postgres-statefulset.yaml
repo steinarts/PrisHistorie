@@ -1,0 +1,57 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: prishistorie-postgres
+  namespace: {{ .Release.Namespace }}
+
+spec:
+  serviceName: prishistorie-postgres
+  replicas: {{ .Values.postgres.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: prishistorie-postgres
+
+  template:
+    metadata:
+      labels:
+        app: prishistorie-postgres
+
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image | quote }}
+
+          ports:
+            - containerPort:  {{ .Values.postgres.service.port }}
+          
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.postgres }}
+                  key: POSTGRES_DB
+
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.postgres }}
+                  key: POSTGRES_USER
+
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.postgres }}
+                  key: POSTGRES_PASSWORD
+
+          volumeMounts:
+            - name: postgres-data
+              mountPath: {{ .Values.postgres.persistence.mountPath | quote }}
+
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.postgres.persistence.claimName }}
+{{- end }}              
