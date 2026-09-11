@@ -1,0 +1,67 @@
+api:
+  replicaCount: 1
+  image:
+    repository: prishistorie-prishistorie-api
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    port: 8000
+    type: ClusterIP
+
+cron:
+  schedule: "0 9,10,14,18,22 * * *"
+  timeZone: "Europe/Oslo"
+
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  restartPolicy: OnFailure
+  emailAlertsEnabled: "true"
+
+  image:
+    repository: prishistorie-prishistorie-cron
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+    emailAlertsEnabled: "true"
+
+  command:
+    - /usr/local/bin/python3
+    - /app/PrisHistorie.py
+
+postgres:
+  enabled: true
+  replicaCount: 1
+  image: postgres:17
+
+  service:
+    port: 5432
+
+  persistence:
+    claimName: prishistorie-postgres-data
+    mountPath: /var/lib/postgresql/data
+    size: 5Gi
+    storageClass: standard
+    accessMode: ReadWriteOnce
+
+backup:
+  schedule: "0 23 * * *"
+  timeZone: Europe/Oslo
+
+  persistence:
+    size: 5Gi
+    storageClass: standard
+
+ingress:
+  className: cilium
+  path: /
+  pathType: Prefix
+
+  serviceName: prishistorie-api
+  servicePort: 8000
+
+secrets:
+  app: prishistorie-secrets
+  postgres: prishistorie-postgres-secret
+
+
+  

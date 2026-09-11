@@ -45,3 +45,4 @@ backup_db.ps1
 PrisHistorie-k8s.db-shm
 PrisHistorie-k8s.db-wal
 kubernetes/secret.local.yaml
+kubernetes/postgres-secret.local.yaml
